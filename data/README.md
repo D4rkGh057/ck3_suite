@@ -11,7 +11,8 @@ Copy these from the game directory (reference version: 1.20.1.2 "Crozier"):
 | Folder here  | Source in the game (`.../Crusader Kings III/game/`) | Purpose                                  |
 |--------------|-----------------------------------------------------|------------------------------------------|
 | `traits/`    | `common/traits/`                                    | Trait definitions (designer cost, opposites) |
-| `defines/`   | `common/defines/`                                   | Global game constants                    |
+| `defines/`   | `common/defines/`                                   | Age cost table and designer constants    |
+| `script_values/` | `common/script_values/` (only `02_ruler_designer_values.txt` is read) | Skill point costs |
 | `spanish/`   | `localization/spanish/`                             | Localized trait names (or use `english/`) |
 
 Typical Steam path on Windows:

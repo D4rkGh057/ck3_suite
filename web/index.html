@@ -47,9 +47,11 @@
     </div>
 
     <div id="manual" class="hidden">
-      <p id="manual-note">Your browser cannot open the game folder directly. Pick the two small folders separately.</p>
+      <p id="manual-note">Your browser cannot open the game folder directly. Pick the two small folders and the two files separately.</p>
       <label>Traits folder (<code>game/common/traits</code>)<br><input type="file" id="traits-input" webkitdirectory></label>
       <label>Localization folder (<code>game/localization/spanish</code> or <code>english</code>)<br><input type="file" id="loc-input" webkitdirectory></label>
+      <label>Skill costs file (<code>game/common/script_values/02_ruler_designer_values.txt</code>)<br><input type="file" id="values-input" accept=".txt"></label>
+      <label>Defines file (<code>game/common/defines/00_defines.txt</code>)<br><input type="file" id="defines-input" accept=".txt"></label>
       <div class="row">
         <select id="manual-language" aria-label="Language">
           <option value="english">english</option>
@@ -142,7 +144,7 @@ if ('showDirectoryPicker' in window) {
 
 $('run-manual').onclick = () => run(async () => {
   const language = $('manual-language').value;
-  await finish(readFromFileLists($('traits-input').files, $('loc-input').files, language));
+  await finish(readFromFileLists($('traits-input').files, $('loc-input').files, language, $('values-input').files[0] ?? null, $('defines-input').files[0] ?? null));
 });
 
 $('export').onclick = () => {
