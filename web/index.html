@@ -5,22 +5,34 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>CK3 Build Suite</title>
 <style>
+  /* Dark is the default, like the game's own interface; the light set follows the system preference. */
   :root {
-    --bg: #eef0f3; --fg: #1b1f27; --muted: #5d6573; --card: #fff; --line: #d5d9e0;
-    --accent: #23407a; --on-accent: #fff; --gold: #a8780f; --gain: #2f6b4f; --err: #b3261e;
+    --bg: #1a1416; --fg: #efe6d8; --muted: #a89a95; --card: #251c1f; --line: #3d2f33;
+    --accent: #a8293c; --on-accent: #fff; --gold: #d9a93a; --gain: #7fc29f; --err: #e8743b;
     --serif: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif;
   }
-  @media (prefers-color-scheme: dark) {
-    :root { --bg: #14171d; --fg: #e8eaee; --muted: #98a0ad; --card: #1d2129; --line: #333945;
-      --accent: #8aa9ee; --on-accent: #0e1420; --gold: #e0b043; --gain: #7fc29f; --err: #f2766e; }
+  @media (prefers-color-scheme: light) {
+    :root { --bg: #f2eeea; --fg: #231a1c; --muted: #6b5d5a; --card: #fff; --line: #ddd3cf;
+      --accent: #8b1e2d; --on-accent: #fff; --gold: #8a6410; --gain: #2f6b4f; --err: #b4470f; }
   }
   * { box-sizing: border-box; }
   body { margin: 0; padding: 16px; background: var(--bg); color: var(--fg); font: 16px/1.5 system-ui, sans-serif; }
-  main { max-width: 1000px; margin: 0 auto; }
-  h1, h2 { font-family: var(--serif); font-weight: 600; }
+  .shell { max-width: 1280px; margin: 0 auto; display: grid; gap: 8px 32px; }
+  main { min-width: 0; }
+  aside header { margin-bottom: 8px; }
+  @media (min-width: 800px) {
+    .shell { grid-template-columns: 210px 1fr; align-items: start; }
+    aside { position: sticky; top: 16px; }
+    aside header { flex-direction: column; align-items: stretch; }
+  }
+  h1, h2 { font-family: var(--serif); font-weight: 600; color: var(--gold); }
   h1 { font-size: 1.6rem; margin: 0 0 4px; }
   h2 { font-size: 1.15rem; margin: 0 0 8px; }
-  h3 { font-family: var(--serif); font-size: 1rem; margin: 20px 0 4px; }
+  details.cat { border-bottom: 1px solid var(--line); }
+  details.cat > summary { display: flex; align-items: center; gap: 8px; min-height: 44px; cursor: pointer; font-family: var(--serif); color: var(--gold); text-transform: capitalize; }
+  details.cat > summary .count { margin-left: auto; color: var(--muted); font: .85rem system-ui, sans-serif; text-transform: none; font-variant-numeric: tabular-nums; }
+  details.cat .trait:last-child { border-bottom: 0; }
+  h3 { font-family: var(--serif); font-size: 1rem; margin: 20px 0 4px; color: var(--gold); }
   .cat { text-transform: capitalize; }
   p, label { color: var(--muted); margin: 0 0 8px; }
   section { background: var(--card); border: 1px solid var(--line); border-radius: 6px; padding: 16px; margin-top: 16px; }
@@ -28,7 +40,7 @@
   button { background: var(--accent); color: var(--on-accent); border: 0; border-radius: 6px; padding: 10px 16px; min-height: 44px; cursor: pointer; }
   button.secondary { background: transparent; color: var(--fg); border: 1px solid var(--line); }
   select, input[type=number], input[type=search] { background: var(--card); border: 1px solid var(--line); border-radius: 6px; padding: 8px; min-height: 44px; }
-  :focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+  :focus-visible { outline: 3px solid var(--gold); outline-offset: 2px; }
   .row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 8px; }
   #status { margin-top: 16px; min-height: 1.5em; }
   #status.error { color: var(--err); }
@@ -37,13 +49,19 @@
   td:last-child, th:last-child { text-align: right; }
   .hidden { display: none; }
   header { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
-  nav { display: flex; gap: 4px; margin-top: 16px; border-bottom: 1px solid var(--line); }
-  nav button { background: transparent; color: var(--muted); border-radius: 6px 6px 0 0; border-bottom: 3px solid transparent; }
+  nav { display: flex; gap: 4px; margin-top: 8px; border-bottom: 1px solid var(--line); }
+  nav button { background: transparent; color: var(--muted); border-radius: 6px 6px 0 0; border-bottom: 3px solid transparent; text-align: left; }
   nav button[aria-selected=true] { color: var(--fg); border-bottom-color: var(--accent); }
+  @media (min-width: 800px) {
+    nav { flex-direction: column; border-bottom: 0; border-left: 1px solid var(--line); }
+    nav button { border-radius: 0 6px 6px 0; border-bottom: 0; border-left: 3px solid transparent; margin-left: -1px; }
+    nav button[aria-selected=true] { border-left-color: var(--accent); background: var(--card); }
+  }
+  nav button:not([aria-selected=true]):hover { color: var(--fg); }
 
   /* Ruler designer: flat layout, no cards. The point gauge is the one loud element. */
   #designer-body { display: grid; gap: 0 32px; }
-  @media (min-width: 800px) { #designer-body { grid-template-columns: 340px 1fr; align-items: start; } #controls { position: sticky; top: 16px; } }
+  @media (min-width: 800px) { #designer-body { grid-template-columns: 360px 1fr; align-items: start; } #controls { position: sticky; top: 16px; } }
   #designer-panel { background: none; border: 0; padding: 0; }
   #budget { position: sticky; top: 0; z-index: 1; background: var(--bg); padding: 12px 0 8px; grid-column: 1 / -1; }
   @media (min-width: 800px) { #budget { position: static; } }
@@ -57,13 +75,13 @@
   .field { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 8px; }
   input[type=number] { width: 5.5em; }
   input[type=search] { width: 100%; }
-  input[type=range] { flex: 1; min-width: 0; accent-color: var(--accent); min-height: 44px; }
+  input[type=range] { flex: 1; min-width: 0; accent-color: var(--gold); min-height: 44px; }
   .skill label { margin: 0; }
   .skill { display: grid; grid-template-columns: 7.5em 1fr 2.2em 3.2em; align-items: center; gap: 8px; margin-top: 4px; }
   .skill .value { text-align: right; color: var(--fg); font-variant-numeric: tabular-nums; }
   .skill .pts { text-align: right; color: var(--muted); font-size: .85rem; font-variant-numeric: tabular-nums; }
   .trait { display: flex; align-items: center; gap: 12px; min-height: 44px; border-bottom: 1px solid var(--line); color: var(--fg); margin: 0; cursor: pointer; }
-  .trait input { width: 20px; height: 20px; accent-color: var(--accent); }
+  .trait input { width: 20px; height: 20px; accent-color: var(--gold); }
   .trait.blocked { opacity: .45; cursor: not-allowed; }
   .trait .cost { margin-left: auto; color: var(--muted); font-variant-numeric: tabular-nums; }
   .trait .cost.gain { color: var(--gain); }
@@ -71,20 +89,22 @@
 </style>
 </head>
 <body>
+<div class="shell">
+  <aside>
+    <header>
+      <h1 data-i18n="title">CK3 Build Suite</h1>
+      <select id="ui-lang" data-i18n-aria="ui.language" aria-label="Interface language">
+        <option value="en">English</option>
+        <option value="es">Español</option>
+      </select>
+    </header>
+    <nav role="tablist">
+      <button role="tab" id="tab-data" aria-selected="true" data-i18n="tab.data"></button>
+      <button role="tab" id="tab-designer" aria-selected="false" data-i18n="tab.designer"></button>
+    </nav>
+  </aside>
 <main>
-  <header>
-    <h1 data-i18n="title">CK3 Build Suite</h1>
-    <select id="ui-lang" data-i18n-aria="ui.language" aria-label="Interface language">
-      <option value="en">English</option>
-      <option value="es">Español</option>
-    </select>
-  </header>
   <p data-i18n="intro"></p>
-
-  <nav role="tablist">
-    <button role="tab" id="tab-data" aria-selected="true" data-i18n="tab.data"></button>
-    <button role="tab" id="tab-designer" aria-selected="false" data-i18n="tab.designer"></button>
-  </nav>
 
   <div id="panel-designer" class="hidden">
     <section id="designer-panel">
@@ -124,6 +144,7 @@
       <p data-i18n-html="direct.text"></p>
       <div class="row">
         <button id="pick-game" data-i18n="direct.pick"></button>
+        <button id="use-manual" class="secondary" data-i18n="direct.manual"></button>
       </div>
     </div>
 
@@ -159,6 +180,7 @@
   </section>
   </div>
 </main>
+</div>
 
 <script type="module">
 import {
@@ -219,6 +241,7 @@ function render(dataset) {
 const freshBuild = (d) => ({ age: 20, skills: Object.fromEntries(SKILLS.map((s) => [s, d.rules.defaultSkill])), traits: [], sons: 0, daughters: 0 });
 let build = null;
 let traitFilter = '';
+const openCats = new Set();
 const traitName = (trait) => trait.names[lang] ?? trait.names.en ?? trait.id;
 
 function readHash() {
@@ -259,12 +282,24 @@ function renderTraits() {
   const nodes = [];
   for (const [cat, items] of [...byCategory].sort(([a], [b]) => a.localeCompare(b))) {
     const label = t(`cat.${cat}`);
-    nodes.push(Object.assign(document.createElement('h3'), { className: 'cat', textContent: label === `cat.${cat}` ? cat : label }));
+    const group = document.createElement('details');
+    group.className = 'cat';
+    // A search opens every group that matches; otherwise the group stays as the person left it.
+    group.open = Boolean(needle) || openCats.has(cat);
+    group.addEventListener('toggle', () => {
+      if (needle) return;
+      if (group.open) openCats.add(cat); else openCats.delete(cat);
+    });
+    const picked = items.filter(([trait]) => build.traits.includes(trait.id)).length;
+    const summary = document.createElement('summary');
+    summary.append(Object.assign(document.createElement('span'), { textContent: label === `cat.${cat}` ? cat : label }),
+      Object.assign(document.createElement('span'), { className: 'count', textContent: picked ? `${picked} / ${items.length}` : items.length }));
+    group.append(summary);
     for (const [trait, name] of items.sort((a, b) => a[1].localeCompare(b[1]))) {
-      const picked = build.traits.includes(trait.id);
+      const isPicked = build.traits.includes(trait.id);
       const row = document.createElement('label');
-      row.className = `trait${blocked.has(trait.id) && !picked ? ' blocked' : ''}`;
-      const box = Object.assign(document.createElement('input'), { type: 'checkbox', checked: picked, disabled: blocked.has(trait.id) && !picked });
+      row.className = `trait${blocked.has(trait.id) && !isPicked ? ' blocked' : ''}`;
+      const box = Object.assign(document.createElement('input'), { type: 'checkbox', checked: isPicked, disabled: blocked.has(trait.id) && !isPicked });
       box.onchange = () => {
         build.traits = box.checked ? [...build.traits, trait.id] : build.traits.filter((id) => id !== trait.id);
         renderTraits();
@@ -272,8 +307,9 @@ function renderTraits() {
       };
       row.append(box, Object.assign(document.createElement('span'), { textContent: name }),
         Object.assign(document.createElement('span'), { className: `cost${trait.cost < 0 ? ' gain' : ''}`, textContent: (trait.cost > 0 ? '+' : '') + trait.cost }));
-      nodes.push(row);
+      group.append(row);
     }
+    nodes.push(group);
   }
   $('trait-list').replaceChildren(...nodes);
 }
@@ -293,6 +329,8 @@ function renderDesigner() {
   if (!ready) return;
   if (!build) build = { ...freshBuild(current), ...readHash() };
   build.skills = { ...freshBuild(current).skills, ...build.skills };
+  // Groups that already hold a picked trait (for example from a shared link) start open.
+  for (const trait of current.traits) if (build.traits.includes(trait.id)) openCats.add(trait.category ?? 'congenital');
   numberField('age', build.age, MIN_AGE, (n) => { build.age = n; });
   numberField('sons', build.sons ?? 0, 0, (n) => { build.sons = n; });
   numberField('daughters', build.daughters ?? 0, 0, (n) => { build.daughters = n; });
@@ -318,7 +356,12 @@ function renderDesigner() {
 
 $('tab-data').onclick = () => showTab('data');
 $('tab-designer').onclick = () => showTab('designer');
-$('trait-search').oninput = (e) => { traitFilter = e.target.value; renderTraits(); };
+// Rebuilding every trait row per keystroke is wasteful on phones, so wait for a pause in typing.
+let searchTimer;
+$('trait-search').oninput = (e) => {
+  clearTimeout(searchTimer);
+  searchTimer = setTimeout(() => { traitFilter = e.target.value; renderTraits(); }, 150);
+};
 $('reset').onclick = () => { build = freshBuild(current); renderDesigner(); };
 $('share').onclick = async () => {
   try { await navigator.clipboard.writeText(location.href); say(() => t('designer.copied')); } catch { say(() => t('designer.copyFailed'), true); }
@@ -348,12 +391,32 @@ async function run(task) {
   try { await task(); } catch (e) { fail(e); }
 }
 
+// The browser refuses some folders (for example anything under Program Files) and reports a cancelled
+// dialog afterwards, so a cancel is the only signal we get. Offer the manual form either way.
+function showManual(noteKey) {
+  $('manual-note').dataset.i18nHtml = noteKey;
+  $('manual-note').innerHTML = t(noteKey);
+  $('manual').classList.remove('hidden');
+}
+
 if ('showDirectoryPicker' in window) {
   $('direct').classList.remove('hidden');
-  $('pick-game').onclick = () => run(async () => {
-    const gameDir = await window.showDirectoryPicker({ id: 'ck3-game', mode: 'read' });
-    await finish(await readFromGameDir(gameDir));
-  });
+  $('use-manual').onclick = () => showManual('manual.noteAlt');
+  $('pick-game').onclick = async () => {
+    say(() => t('status.reading'));
+    try {
+      const gameDir = await window.showDirectoryPicker({ id: 'ck3-game', mode: 'read' });
+      await finish(await readFromGameDir(gameDir));
+    } catch (e) {
+      if (e.name === 'AbortError') {
+        showManual('manual.noteAlt');
+        say(() => t('status.cancelled'));
+      } else {
+        showManual('manual.noteAlt');
+        fail(e);
+      }
+    }
+  };
 } else {
   $('manual').classList.remove('hidden');
 }
