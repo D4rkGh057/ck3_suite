@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { parseScript, extractTraits, parseLocalization } from './paradox.js';
+import { parseScript, extractTraits, parseLocalization, resolveReferences } from './paradox.js';
 
 test('parseScript keeps repeated keys, comments and bare values', () => {
   const tree = parseScript(`﻿# comment
@@ -45,4 +45,21 @@ default = { category = lifestyle }`);
 test('parseLocalization reads quoted values', () => {
   const loc = parseLocalization('l_spanish:\n trait_brave: "Valiente"\n trait_x:0 "A \\"b\\""');
   assert.equal(loc.trait_brave, 'Valiente');
+});
+
+test('resolveReferences replaces $key$ with the referenced text', () => {
+  const out = resolveReferences({ a: '$b$', b: '$c$', c: 'Melancólico', plain: 'Valiente' });
+  assert.equal(out.a, 'Melancólico');
+  assert.equal(out.plain, 'Valiente');
+});
+
+test('resolveReferences drops entries whose reference cannot be resolved or loops', () => {
+  const out = resolveReferences({ a: '$missing$', x: '$y$', y: '$x$', ok: 'Fine' });
+  assert.equal('a' in out, false);
+  assert.equal('x' in out, false);
+  assert.equal(out.ok, 'Fine');
+});
+
+test('resolveReferences keeps text that merely mentions a reference among other words', () => {
+  assert.equal(resolveReferences({ a: 'Son of $b$', b: 'Ragnar' }).a, 'Son of Ragnar');
 });

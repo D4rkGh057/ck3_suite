@@ -1,6 +1,6 @@
 // Reads the few CK3 game files the calculator needs and builds a local dataset.
 // Game files are read in the browser only; nothing is uploaded.
-import { extractTraits, parseLocalization } from './paradox.js';
+import { extractTraits, parseLocalization, resolveReferences } from './paradox.js';
 import { parseSkillCosts, parseDesignerDefines } from './designer.js';
 import { CodedError } from './i18n.js';
 
@@ -98,6 +98,7 @@ export async function buildDataset({ traitFiles, locByLang = {}, valuesFile, def
   for (const [code, files] of Object.entries(locByLang)) {
     localized[code] = {};
     for (const file of files) Object.assign(localized[code], parseLocalization(await file.text()));
+    localized[code] = resolveReferences(localized[code]);
   }
   const traits = [];
   for (const file of traitFiles) {

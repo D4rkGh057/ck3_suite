@@ -113,3 +113,27 @@ export function parseLocalization(source) {
   }
   return out;
 }
+
+// Localization values may point to another key as `$key$`. Resolves them within one table;
+// an entry whose reference is missing (it lives in a file we do not read) or loops is dropped,
+// so the interface falls back to another language or the trait id instead of showing `$key$`.
+export function resolveReferences(table) {
+  const out = {};
+  const resolve = (key, seen) => {
+    if (seen.has(key)) return null;
+    const value = table[key];
+    if (value === undefined) return null;
+    let broken = false;
+    const text = value.replace(/\$([A-Za-z0-9_.-]+)\$/g, (_, ref) => {
+      const resolved = resolve(ref, new Set([...seen, key]));
+      if (resolved === null) broken = true;
+      return resolved ?? '';
+    });
+    return broken ? null : text;
+  };
+  for (const key of Object.keys(table)) {
+    const value = resolve(key, new Set());
+    if (value !== null) out[key] = value;
+  }
+  return out;
+}
