@@ -95,6 +95,8 @@ export function extractTraits(source) {
       level: level === undefined ? null : Number(level),
       opposites: Array.isArray(opposites) ? opposites.map(([, v]) => v) : [],
       flags: all(body, 'flag'),
+      // The game defaults to offering a trait; only an explicit `no` hides it.
+      inDesigner: first(body, 'shown_in_ruler_designer') !== 'no',
     });
   }
   return traits;

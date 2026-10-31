@@ -22,11 +22,19 @@ intellect_good_3 = { opposites = { dull } ruler_designer_cost = 240 }`);
   assert.equal(traits.length, 3);
   assert.deepEqual(traits[0], {
     id: 'education_intrigue_2', category: 'education', cost: 20,
-    group: null, level: 2, opposites: [], flags: [],
+    group: null, level: 2, opposites: [], flags: [], inDesigner: true,
   });
   assert.deepEqual(traits[1].opposites, ['chaste']);
   assert.equal(traits[2].category, null);
   assert.equal(traits[2].cost, 240);
+});
+
+test('extractTraits flags traits the ruler designer does not offer', () => {
+  const traits = extractTraits(`
+hidden = { shown_in_ruler_designer = no ruler_designer_cost = 10 }
+shown = { shown_in_ruler_designer = yes }
+default = { category = lifestyle }`);
+  assert.deepEqual(traits.map((t) => t.inDesigner), [false, true, true]);
 });
 
 test('parseLocalization reads quoted values', () => {
