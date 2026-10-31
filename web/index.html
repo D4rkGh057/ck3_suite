@@ -5,21 +5,30 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>CK3 Build Suite</title>
 <style>
-  :root { --bg: #fafafa; --fg: #1c1c1e; --muted: #6b6b70; --card: #fff; --line: #d9d9de; --accent: #8a5a00; --err: #b3261e; }
+  :root {
+    --bg: #eef0f3; --fg: #1b1f27; --muted: #5d6573; --card: #fff; --line: #d5d9e0;
+    --accent: #23407a; --on-accent: #fff; --gold: #a8780f; --gain: #2f6b4f; --err: #b3261e;
+    --serif: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif;
+  }
   @media (prefers-color-scheme: dark) {
-    :root { --bg: #17171a; --fg: #ececf0; --muted: #9a9aa3; --card: #222226; --line: #38383e; --accent: #e0a63a; --err: #f2766e; }
+    :root { --bg: #14171d; --fg: #e8eaee; --muted: #98a0ad; --card: #1d2129; --line: #333945;
+      --accent: #8aa9ee; --on-accent: #0e1420; --gold: #e0b043; --gain: #7fc29f; --err: #f2766e; }
   }
   * { box-sizing: border-box; }
   body { margin: 0; padding: 16px; background: var(--bg); color: var(--fg); font: 16px/1.5 system-ui, sans-serif; }
-  main { max-width: 640px; margin: 0 auto; }
-  h1 { font-size: 1.4rem; margin: 0 0 4px; }
-  h2 { font-size: 1.05rem; margin: 0 0 8px; }
+  main { max-width: 1000px; margin: 0 auto; }
+  h1, h2 { font-family: var(--serif); font-weight: 600; }
+  h1 { font-size: 1.6rem; margin: 0 0 4px; }
+  h2 { font-size: 1.15rem; margin: 0 0 8px; }
+  h3 { font-family: var(--serif); font-size: 1rem; margin: 20px 0 4px; }
+  .cat { text-transform: capitalize; }
   p, label { color: var(--muted); margin: 0 0 8px; }
-  section { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 16px; margin-top: 16px; }
-  button, select, input[type=file] { font: inherit; color: var(--fg); }
-  button { background: var(--accent); color: #fff; border: 0; border-radius: 8px; padding: 10px 16px; min-height: 44px; cursor: pointer; }
+  section { background: var(--card); border: 1px solid var(--line); border-radius: 6px; padding: 16px; margin-top: 16px; }
+  button, select, input { font: inherit; color: var(--fg); }
+  button { background: var(--accent); color: var(--on-accent); border: 0; border-radius: 6px; padding: 10px 16px; min-height: 44px; cursor: pointer; }
   button.secondary { background: transparent; color: var(--fg); border: 1px solid var(--line); }
-  select { background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 8px; min-height: 44px; }
+  select, input[type=number], input[type=search] { background: var(--card); border: 1px solid var(--line); border-radius: 6px; padding: 8px; min-height: 44px; }
+  :focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
   .row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 8px; }
   #status { margin-top: 16px; min-height: 1.5em; }
   #status.error { color: var(--err); }
@@ -28,6 +37,37 @@
   td:last-child, th:last-child { text-align: right; }
   .hidden { display: none; }
   header { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
+  nav { display: flex; gap: 4px; margin-top: 16px; border-bottom: 1px solid var(--line); }
+  nav button { background: transparent; color: var(--muted); border-radius: 6px 6px 0 0; border-bottom: 3px solid transparent; }
+  nav button[aria-selected=true] { color: var(--fg); border-bottom-color: var(--accent); }
+
+  /* Ruler designer: flat layout, no cards. The point gauge is the one loud element. */
+  #designer-body { display: grid; gap: 0 32px; }
+  @media (min-width: 800px) { #designer-body { grid-template-columns: 340px 1fr; align-items: start; } #controls { position: sticky; top: 16px; } }
+  #designer-panel { background: none; border: 0; padding: 0; }
+  #budget { position: sticky; top: 0; z-index: 1; background: var(--bg); padding: 12px 0 8px; grid-column: 1 / -1; }
+  @media (min-width: 800px) { #budget { position: static; } }
+  .gauge { height: 14px; background: var(--line); border-radius: 7px; overflow: hidden; }
+  .gauge > i { display: block; height: 100%; width: 0; background: var(--gold); transition: width .2s; }
+  #budget.over .gauge > i { background: var(--err); }
+  .points { font-family: var(--serif); font-size: 2rem; line-height: 1.1; margin-bottom: 6px; color: var(--fg); }
+  .points small { font-size: 1rem; color: var(--muted); }
+  #budget-note { color: var(--muted); }
+  #budget.over #budget-note { color: var(--err); font-weight: 600; }
+  .field { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 8px; }
+  input[type=number] { width: 5.5em; }
+  input[type=search] { width: 100%; }
+  input[type=range] { flex: 1; min-width: 0; accent-color: var(--accent); min-height: 44px; }
+  .skill label { margin: 0; }
+  .skill { display: grid; grid-template-columns: 7.5em 1fr 2.2em 3.2em; align-items: center; gap: 8px; margin-top: 4px; }
+  .skill .value { text-align: right; color: var(--fg); font-variant-numeric: tabular-nums; }
+  .skill .pts { text-align: right; color: var(--muted); font-size: .85rem; font-variant-numeric: tabular-nums; }
+  .trait { display: flex; align-items: center; gap: 12px; min-height: 44px; border-bottom: 1px solid var(--line); color: var(--fg); margin: 0; cursor: pointer; }
+  .trait input { width: 20px; height: 20px; accent-color: var(--accent); }
+  .trait.blocked { opacity: .45; cursor: not-allowed; }
+  .trait .cost { margin-left: auto; color: var(--muted); font-variant-numeric: tabular-nums; }
+  .trait .cost.gain { color: var(--gain); }
+  @media (prefers-reduced-motion: reduce) { .gauge > i { transition: none; } }
 </style>
 </head>
 <body>
@@ -41,6 +81,42 @@
   </header>
   <p data-i18n="intro"></p>
 
+  <nav role="tablist">
+    <button role="tab" id="tab-data" aria-selected="true" data-i18n="tab.data"></button>
+    <button role="tab" id="tab-designer" aria-selected="false" data-i18n="tab.designer"></button>
+  </nav>
+
+  <div id="panel-designer" class="hidden">
+    <section id="designer-panel">
+      <p id="designer-empty" class="hidden" data-i18n="designer.needData"></p>
+      <div id="designer-body" class="hidden">
+        <div id="budget" role="status">
+          <div class="points"><span id="points-total"></span><small id="points-max"></small></div>
+          <div class="gauge"><i id="gauge-fill"></i></div>
+          <div id="budget-note"></div>
+        </div>
+        <div id="controls">
+        <div class="field"><label for="age" data-i18n="designer.age"></label><input type="number" id="age" min="16" step="1"></div>
+        <h3 data-i18n="designer.skills"></h3>
+        <div id="skills"></div>
+        <h3 data-i18n="designer.children"></h3>
+        <div class="field"><label for="sons" data-i18n="designer.sons"></label><input type="number" id="sons" min="0" step="1"></div>
+        <div class="field"><label for="daughters" data-i18n="designer.daughters"></label><input type="number" id="daughters" min="0" step="1"></div>
+        <div class="row">
+          <button id="share" data-i18n="designer.share"></button>
+          <button id="reset" class="secondary" data-i18n="designer.reset"></button>
+        </div>
+        </div>
+        <div id="traits-col">
+        <h3 data-i18n="designer.traits"></h3>
+        <input type="search" id="trait-search" data-i18n-aria="designer.search" aria-label="Search traits" data-i18n-placeholder="designer.search">
+        <div id="trait-list"></div>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <div id="panel-data">
   <section id="import">
     <h2 data-i18n="import.title"></h2>
 
@@ -81,6 +157,7 @@
     <p id="summary-text"></p>
     <table><thead><tr><th data-i18n="summary.category"></th><th data-i18n="summary.traits"></th></tr></thead><tbody id="summary-rows"></tbody></table>
   </section>
+  </div>
 </main>
 
 <script type="module">
@@ -91,6 +168,8 @@ import {
 import {
   applyTranslations, describeError, detectLang, loadSavedLang, saveLang, translate,
 } from './i18n.js';
+import { SKILLS, skillCost } from './designer.js';
+import { designerTraits, conflictsOf, evaluate, encodeBuild, decodeBuild, MIN_AGE } from './build.js';
 
 const $ = (id) => document.getElementById(id);
 let lang = detectLang(loadSavedLang(), navigator.language);
@@ -114,9 +193,10 @@ function fail(error) {
 
 function render(dataset) {
   current = dataset;
+  if (build && !dataset) build = null;
   $('export').disabled = $('clear').disabled = !dataset;
   $('summary').classList.toggle('hidden', !dataset);
-  if (!dataset) return;
+  if (!dataset) { renderDesigner(); return; }
   const counts = new Map();
   for (const trait of dataset.traits) {
     const cat = trait.category ?? 'congenital';
@@ -132,7 +212,117 @@ function render(dataset) {
     );
     return tr;
   }));
+  renderDesigner();
 }
+
+// ---- Ruler designer ----
+const freshBuild = (d) => ({ age: 20, skills: Object.fromEntries(SKILLS.map((s) => [s, d.rules.defaultSkill])), traits: [], sons: 0, daughters: 0 });
+let build = null;
+let traitFilter = '';
+const traitName = (trait) => trait.names[lang] ?? trait.names.en ?? trait.id;
+
+function readHash() {
+  const code = location.hash.match(/^#b=(.+)$/)?.[1];
+  return code ? decodeBuild(code) : null;
+}
+
+function showTab(name) {
+  const designer = name === 'designer';
+  $('panel-designer').classList.toggle('hidden', !designer);
+  $('panel-data').classList.toggle('hidden', designer);
+  $('tab-designer').setAttribute('aria-selected', designer);
+  $('tab-data').setAttribute('aria-selected', !designer);
+}
+
+function renderBudget() {
+  const { total, remaining } = evaluate(current, build);
+  const max = current.rules.pointMax;
+  $('budget').className = remaining < 0 ? 'over' : '';
+  $('points-total').textContent = total;
+  $('points-max').textContent = ` / ${max}`;
+  $('gauge-fill').style.width = `${Math.min(100, Math.max(0, (total / max) * 100))}%`;
+  $('budget-note').textContent = remaining < 0 ? t('designer.over', { over: -remaining }) : t('designer.left', { left: remaining });
+  history.replaceState(null, '', `#b=${encodeBuild(build)}`);
+}
+
+function renderTraits() {
+  const blocked = conflictsOf(current, build.traits);
+  const needle = traitFilter.trim().toLowerCase();
+  const byCategory = new Map();
+  for (const trait of designerTraits(current)) {
+    const name = traitName(trait);
+    if (needle && !name.toLowerCase().includes(needle)) continue;
+    const cat = trait.category ?? 'congenital';
+    if (!byCategory.has(cat)) byCategory.set(cat, []);
+    byCategory.get(cat).push([trait, name]);
+  }
+  const nodes = [];
+  for (const [cat, items] of [...byCategory].sort(([a], [b]) => a.localeCompare(b))) {
+    const label = t(`cat.${cat}`);
+    nodes.push(Object.assign(document.createElement('h3'), { className: 'cat', textContent: label === `cat.${cat}` ? cat : label }));
+    for (const [trait, name] of items.sort((a, b) => a[1].localeCompare(b[1]))) {
+      const picked = build.traits.includes(trait.id);
+      const row = document.createElement('label');
+      row.className = `trait${blocked.has(trait.id) && !picked ? ' blocked' : ''}`;
+      const box = Object.assign(document.createElement('input'), { type: 'checkbox', checked: picked, disabled: blocked.has(trait.id) && !picked });
+      box.onchange = () => {
+        build.traits = box.checked ? [...build.traits, trait.id] : build.traits.filter((id) => id !== trait.id);
+        renderTraits();
+        renderBudget();
+      };
+      row.append(box, Object.assign(document.createElement('span'), { textContent: name }),
+        Object.assign(document.createElement('span'), { className: `cost${trait.cost < 0 ? ' gain' : ''}`, textContent: (trait.cost > 0 ? '+' : '') + trait.cost }));
+      nodes.push(row);
+    }
+  }
+  $('trait-list').replaceChildren(...nodes);
+}
+
+function numberField(id, value, min, onChange) {
+  const input = $(id) ?? Object.assign(document.createElement('input'), { type: 'number', step: 1, id });
+  input.min = min;
+  input.value = value;
+  input.oninput = () => { const n = Math.floor(Number(input.value)); if (Number.isFinite(n) && n >= min) { onChange(n); renderBudget(); } };
+  return input;
+}
+
+function renderDesigner() {
+  const ready = Boolean(current);
+  $('designer-empty').classList.toggle('hidden', ready);
+  $('designer-body').classList.toggle('hidden', !ready);
+  if (!ready) return;
+  if (!build) build = { ...freshBuild(current), ...readHash() };
+  build.skills = { ...freshBuild(current).skills, ...build.skills };
+  numberField('age', build.age, MIN_AGE, (n) => { build.age = n; });
+  numberField('sons', build.sons ?? 0, 0, (n) => { build.sons = n; });
+  numberField('daughters', build.daughters ?? 0, 0, (n) => { build.daughters = n; });
+  $('skills').replaceChildren(...SKILLS.map((skill) => {
+    const tiers = skill === 'prowess' ? current.rules.skillCosts.prowess : current.rules.skillCosts.general;
+    const row = document.createElement('div');
+    row.className = 'skill';
+    const slider = Object.assign(document.createElement('input'), { type: 'range', id: `skill-${skill}`, min: 0, max: 30, step: 1, value: build.skills[skill] });
+    const value = Object.assign(document.createElement('span'), { className: 'value', textContent: build.skills[skill] });
+    const pts = Object.assign(document.createElement('span'), { className: 'pts', textContent: skillCost(tiers, build.skills[skill]) });
+    slider.oninput = () => {
+      build.skills[skill] = Number(slider.value);
+      value.textContent = slider.value;
+      pts.textContent = skillCost(tiers, build.skills[skill]);
+      renderBudget();
+    };
+    row.append(Object.assign(document.createElement('label'), { htmlFor: slider.id, textContent: t(`skill.${skill}`) }), slider, value, pts);
+    return row;
+  }));
+  renderTraits();
+  renderBudget();
+}
+
+$('tab-data').onclick = () => showTab('data');
+$('tab-designer').onclick = () => showTab('designer');
+$('trait-search').oninput = (e) => { traitFilter = e.target.value; renderTraits(); };
+$('reset').onclick = () => { build = freshBuild(current); renderDesigner(); };
+$('share').onclick = async () => {
+  try { await navigator.clipboard.writeText(location.href); say(() => t('designer.copied')); } catch { say(() => t('designer.copyFailed'), true); }
+};
 
 function setLang(next) {
   lang = next;
@@ -140,6 +330,7 @@ function setLang(next) {
   $('ui-lang').value = lang;
   applyTranslations(document, lang);
   if (current) render(current);
+  renderDesigner();
   if (statusView) say(statusView, $('status').className === 'error');
 }
 
@@ -196,6 +387,7 @@ $('clear').onclick = () => run(async () => { await clearDataset(); render(null);
 $('ui-lang').onchange = (e) => setLang(e.target.value);
 setLang(lang);
 loadDataset().then(render).catch(() => render(null));
+if (readHash()) showTab('designer');
 </script>
 </body>
 </html>
