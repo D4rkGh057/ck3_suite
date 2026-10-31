@@ -1,12 +1,13 @@
 // Ruler designer point rules, read from the game's own script files.
 import { parseScript } from './paradox.js';
+import { CodedError } from './i18n.js';
 
 const first = (entries, key) => entries.find(([k]) => k === key)?.[1];
 const num = (v) => Number(v);
 
 function topLevelBlock(source, name) {
   const block = parseScript(source).find(([k]) => k === name)?.[1];
-  if (!Array.isArray(block)) throw new Error(`"${name}" not found in the script values file.`);
+  if (!Array.isArray(block)) throw new CodedError('blockNotFound', { name }, `"${name}" not found in the script values file.`);
   return block;
 }
 
@@ -32,7 +33,7 @@ function parseTiers(block) {
       offset: adds[1] ?? 0,
     });
   }
-  if (tiers.length === 0) throw new Error('No cost tiers found in the script values file.');
+  if (tiers.length === 0) throw new CodedError('noTiers', {}, 'No cost tiers found in the script values file.');
   return tiers;
 }
 

@@ -2,6 +2,7 @@
 // Game files are read in the browser only; nothing is uploaded.
 import { extractTraits, parseLocalization } from './paradox.js';
 import { parseSkillCosts, parseDesignerDefines } from './designer.js';
+import { CodedError } from './i18n.js';
 
 const SCHEMA = 2;
 const VALUES_FILE = '02_ruler_designer_values.txt';
@@ -52,16 +53,16 @@ export async function listLanguages(gameDir) {
 export async function readFromGameDir(gameDir, language) {
   const common = await child(gameDir, 'common');
   const traits = common && (await child(common, 'traits'));
-  if (!traits) throw new Error('Folder "common/traits" not found. Pick the game folder that contains "common" and "localization".');
+  if (!traits) throw new CodedError('missingTraitsDir', {}, 'Folder "common/traits" not found. Pick the game folder that contains "common" and "localization".');
   const values = await child(common, 'script_values');
   const defines = await child(common, 'defines');
   const valuesFile = values && (await fileIn(values, VALUES_FILE));
   const definesFile = defines && (await fileIn(defines, DEFINES_FILE));
-  if (!valuesFile) throw new Error(`File "common/script_values/${VALUES_FILE}" not found.`);
-  if (!definesFile) throw new Error(`File "common/defines/${DEFINES_FILE}" not found.`);
+  if (!valuesFile) throw new CodedError('missingValuesFile', { file: VALUES_FILE }, `File "common/script_values/${VALUES_FILE}" not found.`);
+  if (!definesFile) throw new CodedError('missingDefinesFile', { file: DEFINES_FILE }, `File "common/defines/${DEFINES_FILE}" not found.`);
   const loc = await child(gameDir, 'localization');
   const langDir = loc && (await child(loc, language));
-  if (!langDir) throw new Error(`Folder "localization/${language}" not found.`);
+  if (!langDir) throw new CodedError('missingLocDir', { language }, `Folder "localization/${language}" not found.`);
   return {
     language,
     traitFiles: await readDir(traits, isTraitScript),
@@ -85,9 +86,9 @@ export function readFromFileLists(traitList, locList, language, valuesFile = nul
 }
 
 export async function buildDataset({ language, traitFiles, locFiles, valuesFile, definesFile }) {
-  if (traitFiles.length === 0) throw new Error('No trait files (.txt) found in the selected folder.');
-  if (!valuesFile) throw new Error(`Select the file "${VALUES_FILE}" (game/common/script_values).`);
-  if (!definesFile) throw new Error(`Select the file "${DEFINES_FILE}" (game/common/defines).`);
+  if (traitFiles.length === 0) throw new CodedError('noTraitFiles', {}, 'No trait files (.txt) found in the selected folder.');
+  if (!valuesFile) throw new CodedError('selectValues', { file: VALUES_FILE }, `Select the file "${VALUES_FILE}" (game/common/script_values).`);
+  if (!definesFile) throw new CodedError('selectDefines', { file: DEFINES_FILE }, `Select the file "${DEFINES_FILE}" (game/common/defines).`);
   const rules = {
     ...parseDesignerDefines(await definesFile.text()),
     skillCosts: parseSkillCosts(await valuesFile.text()),
@@ -100,7 +101,7 @@ export async function buildDataset({ language, traitFiles, locFiles, valuesFile,
       traits.push({ ...trait, name: names[`trait_${trait.id}`] ?? trait.id });
     }
   }
-  if (traits.length === 0) throw new Error('The selected files contain no traits. Is this the "common/traits" folder?');
+  if (traits.length === 0) throw new CodedError('noTraits', {}, 'The selected files contain no traits. Is this the "common/traits" folder?');
   return { schema: SCHEMA, language, generatedAt: new Date().toISOString(), rules, traits };
 }
 
@@ -111,7 +112,7 @@ export function exportDataset(dataset) {
 export function parseDataset(json) {
   const data = JSON.parse(json);
   if (data?.schema !== SCHEMA || !Array.isArray(data.traits)) {
-    throw new Error('This file is not a dataset exported by this tool.');
+    throw new CodedError('notDataset', {}, 'This file is not a dataset exported by this tool.');
   }
   return data;
 }
