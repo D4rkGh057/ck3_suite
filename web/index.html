@@ -82,7 +82,17 @@
   .skill .pts { text-align: right; color: var(--muted); font-size: .85rem; font-variant-numeric: tabular-nums; }
   .trait { display: flex; align-items: center; gap: 12px; min-height: 44px; border-bottom: 1px solid var(--line); color: var(--fg); margin: 0; cursor: pointer; }
   .trait input { width: 20px; height: 20px; accent-color: var(--gold); }
+  .pick { padding: 12px 0; border-top: 1px solid var(--line); }
+  .pick label { display: flex; justify-content: space-between; gap: 8px; color: var(--fg); margin: 0; }
+  .pick .need { color: var(--muted); font-size: .85rem; font-weight: 400; }
+  .pick code { display: block; margin: 2px 0 8px; color: var(--muted); font-size: .85rem; overflow-wrap: anywhere; }
+  .pick input[type=file] { width: 100%; }
+  .group-hint { margin: 12px 0 0; }
   .trait.blocked { opacity: .45; cursor: not-allowed; }
+  .trait.tier { cursor: default; }
+  .trait.tier label { margin: 0; flex: 1; }
+  .trait.tier select { flex: 2; min-width: 0; }
+  .trait.tier .cost { min-width: 2.5em; text-align: right; }
   .trait .cost { margin-left: auto; color: var(--muted); font-variant-numeric: tabular-nums; }
   .trait .cost.gain { color: var(--gain); }
   @media (prefers-reduced-motion: reduce) { .gauge > i { transition: none; } }
@@ -150,11 +160,32 @@
 
     <div id="manual" class="hidden">
       <p id="manual-note" data-i18n-html="manual.note"></p>
-      <label><span data-i18n-html="manual.traits"></span><br><input type="file" id="traits-input" webkitdirectory></label>
-      <label><span data-i18n-html="manual.locEn"></span><br><input type="file" id="loc-en-input" webkitdirectory></label>
-      <label><span data-i18n-html="manual.locEs"></span><br><input type="file" id="loc-es-input" webkitdirectory></label>
-      <label><span data-i18n-html="manual.values"></span><br><input type="file" id="values-input" accept=".txt"></label>
-      <label><span data-i18n-html="manual.defines"></span><br><input type="file" id="defines-input" accept=".txt"></label>
+      <div class="pick">
+        <label for="traits-input"><strong data-i18n="manual.traits"></strong><span class="need" data-i18n="manual.required"></span></label>
+        <code>game/common/traits</code>
+        <input type="file" id="traits-input" webkitdirectory>
+      </div>
+      <p class="group-hint" data-i18n="manual.locHint"></p>
+      <div class="pick">
+        <label for="loc-en-input"><strong data-i18n="manual.locEn"></strong><span class="need" data-i18n="manual.optional"></span></label>
+        <code>game/localization/english</code>
+        <input type="file" id="loc-en-input" webkitdirectory>
+      </div>
+      <div class="pick">
+        <label for="loc-es-input"><strong data-i18n="manual.locEs"></strong><span class="need" data-i18n="manual.optional"></span></label>
+        <code>game/localization/spanish</code>
+        <input type="file" id="loc-es-input" webkitdirectory>
+      </div>
+      <div class="pick">
+        <label for="values-input"><strong data-i18n="manual.values"></strong><span class="need" data-i18n="manual.required"></span></label>
+        <code>game/common/script_values/02_ruler_designer_values.txt</code>
+        <input type="file" id="values-input" accept=".txt">
+      </div>
+      <div class="pick">
+        <label for="defines-input"><strong data-i18n="manual.defines"></strong><span class="need" data-i18n="manual.required"></span></label>
+        <code>game/common/defines/00_defines.txt</code>
+        <input type="file" id="defines-input" accept=".txt">
+      </div>
       <div class="row">
         <button id="run-manual" data-i18n="manual.import"></button>
       </div>
@@ -191,7 +222,7 @@ import {
   applyTranslations, describeError, detectLang, loadSavedLang, saveLang, translate,
 } from './i18n.js';
 import { SKILLS, skillCost } from './designer.js';
-import { designerTraits, conflictsOf, evaluate, encodeBuild, decodeBuild, MIN_AGE } from './build.js';
+import { designerTraits, conflictsOf, evaluate, encodeBuild, decodeBuild, tierGroups, setTier, dropRivals, MIN_AGE } from './build.js';
 
 const $ = (id) => document.getElementById(id);
 let lang = detectLang(loadSavedLang(), navigator.language);
@@ -268,19 +299,84 @@ function renderBudget() {
   history.replaceState(null, '', `#b=${encodeBuild(build)}`);
 }
 
+const signed = (n) => (n > 0 ? '+' : '') + n;
+
+// Label of a tier group: the game's own name when we know it, else its first level's name.
+function groupLabel(group, members) {
+  const skill = group.match(/^education_(\w+)$/)?.[1];
+  if (skill && SKILLS.includes(skill)) return `${t('cat.education')} ${t(`skill.${skill}`).toLowerCase()}`;
+  const key = `group.${group}`;
+  return t(key) === key ? traitName(members[0]) : t(key);
+}
+
+function costSpan(cost) {
+  return Object.assign(document.createElement('span'), { className: `cost${cost < 0 ? ' gain' : ''}`, textContent: signed(cost) });
+}
+
+function singleRow(trait, name, blocked) {
+  const isPicked = build.traits.includes(trait.id);
+  const row = document.createElement('label');
+  row.className = `trait${blocked.has(trait.id) && !isPicked ? ' blocked' : ''}`;
+  const box = Object.assign(document.createElement('input'), { type: 'checkbox', checked: isPicked, disabled: blocked.has(trait.id) && !isPicked });
+  box.onchange = () => {
+    build.traits = box.checked ? [...dropRivals(current, build.traits, trait.id), trait.id] : build.traits.filter((id) => id !== trait.id);
+    renderTraits();
+    renderBudget();
+  };
+  row.append(box, Object.assign(document.createElement('span'), { textContent: name }), costSpan(trait.cost));
+  return row;
+}
+
+// One row for all levels of a group: a select with "none" plus every level and its cost.
+function tierRow({ group, members }, label) {
+  const ids = members.map((m) => m.id);
+  const blockedByOthers = conflictsOf(current, build.traits.filter((id) => !ids.includes(id)));
+  const chosen = members.find((m) => build.traits.includes(m.id));
+  const row = document.createElement('div');
+  row.className = 'trait tier';
+  const select = document.createElement('select');
+  select.id = `tier-${group}`;
+  select.append(new Option('-', ''));
+  for (const m of members) {
+    const option = new Option(`${traitName(m)} (${signed(m.cost)})`, m.id);
+    option.disabled = blockedByOthers.has(m.id);
+    select.append(option);
+  }
+  select.value = chosen?.id ?? '';
+  select.disabled = members.every((m) => blockedByOthers.has(m.id));
+  select.onchange = () => {
+    build.traits = setTier(select.value ? dropRivals(current, build.traits, select.value) : build.traits, ids, select.value || null);
+    renderTraits();
+    renderBudget();
+  };
+  const name = Object.assign(document.createElement('label'), { htmlFor: select.id, textContent: label });
+  row.append(name, select, chosen ? costSpan(chosen.cost) : Object.assign(document.createElement('span'), { className: 'cost', textContent: '' }));
+  return row;
+}
+
 function renderTraits() {
   const blocked = conflictsOf(current, build.traits);
   const needle = traitFilter.trim().toLowerCase();
   const byCategory = new Map();
   for (const trait of designerTraits(current)) {
-    const name = traitName(trait);
-    if (needle && !name.toLowerCase().includes(needle)) continue;
     const cat = trait.category ?? 'congenital';
     if (!byCategory.has(cat)) byCategory.set(cat, []);
-    byCategory.get(cat).push([trait, name]);
+    byCategory.get(cat).push(trait);
   }
   const nodes = [];
-  for (const [cat, items] of [...byCategory].sort(([a], [b]) => a.localeCompare(b))) {
+  for (const [cat, traits] of [...byCategory].sort(([a], [b]) => a.localeCompare(b))) {
+    // Each entry is one row: a single trait or a whole tier group. `names` feeds the search.
+    const { groups, singles } = tierGroups(traits);
+    const entries = [
+      ...singles.map((trait) => ({ label: traitName(trait), names: [traitName(trait)], ids: [trait.id], render: () => singleRow(trait, traitName(trait), blocked) })),
+      ...groups.map((g) => {
+        const label = groupLabel(g.group, g.members);
+        return { label, names: [label, ...g.members.map(traitName)], ids: g.members.map((m) => m.id), render: () => tierRow(g, label) };
+      }),
+    ].filter((e) => !needle || e.names.some((n) => n.toLowerCase().includes(needle)));
+    if (entries.length === 0) continue;
+    entries.sort((a, b) => a.label.localeCompare(b.label));
+
     const label = t(`cat.${cat}`);
     const group = document.createElement('details');
     group.className = 'cat';
@@ -290,25 +386,11 @@ function renderTraits() {
       if (needle) return;
       if (group.open) openCats.add(cat); else openCats.delete(cat);
     });
-    const picked = items.filter(([trait]) => build.traits.includes(trait.id)).length;
+    const picked = entries.filter((e) => e.ids.some((id) => build.traits.includes(id))).length;
     const summary = document.createElement('summary');
     summary.append(Object.assign(document.createElement('span'), { textContent: label === `cat.${cat}` ? cat : label }),
-      Object.assign(document.createElement('span'), { className: 'count', textContent: picked ? `${picked} / ${items.length}` : items.length }));
-    group.append(summary);
-    for (const [trait, name] of items.sort((a, b) => a[1].localeCompare(b[1]))) {
-      const isPicked = build.traits.includes(trait.id);
-      const row = document.createElement('label');
-      row.className = `trait${blocked.has(trait.id) && !isPicked ? ' blocked' : ''}`;
-      const box = Object.assign(document.createElement('input'), { type: 'checkbox', checked: isPicked, disabled: blocked.has(trait.id) && !isPicked });
-      box.onchange = () => {
-        build.traits = box.checked ? [...build.traits, trait.id] : build.traits.filter((id) => id !== trait.id);
-        renderTraits();
-        renderBudget();
-      };
-      row.append(box, Object.assign(document.createElement('span'), { textContent: name }),
-        Object.assign(document.createElement('span'), { className: `cost${trait.cost < 0 ? ' gain' : ''}`, textContent: (trait.cost > 0 ? '+' : '') + trait.cost }));
-      group.append(row);
-    }
+      Object.assign(document.createElement('span'), { className: 'count', textContent: picked ? `${picked} / ${entries.length}` : entries.length }));
+    group.append(summary, ...entries.map((e) => e.render()));
     nodes.push(group);
   }
   $('trait-list').replaceChildren(...nodes);
