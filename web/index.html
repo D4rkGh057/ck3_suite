@@ -1,0 +1,168 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CK3 Build Suite</title>
+<style>
+  :root { --bg: #fafafa; --fg: #1c1c1e; --muted: #6b6b70; --card: #fff; --line: #d9d9de; --accent: #8a5a00; --err: #b3261e; }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #17171a; --fg: #ececf0; --muted: #9a9aa3; --card: #222226; --line: #38383e; --accent: #e0a63a; --err: #f2766e; }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; padding: 16px; background: var(--bg); color: var(--fg); font: 16px/1.5 system-ui, sans-serif; }
+  main { max-width: 640px; margin: 0 auto; }
+  h1 { font-size: 1.4rem; margin: 0 0 4px; }
+  h2 { font-size: 1.05rem; margin: 0 0 8px; }
+  p, label { color: var(--muted); margin: 0 0 8px; }
+  section { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 16px; margin-top: 16px; }
+  button, select, input[type=file] { font: inherit; color: var(--fg); }
+  button { background: var(--accent); color: #fff; border: 0; border-radius: 8px; padding: 10px 16px; min-height: 44px; cursor: pointer; }
+  button.secondary { background: transparent; color: var(--fg); border: 1px solid var(--line); }
+  select { background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 8px; min-height: 44px; }
+  .row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 8px; }
+  #status { margin-top: 16px; min-height: 1.5em; }
+  #status.error { color: var(--err); }
+  table { width: 100%; border-collapse: collapse; font-size: .9rem; }
+  th, td { text-align: left; padding: 4px 6px; border-bottom: 1px solid var(--line); }
+  td:last-child, th:last-child { text-align: right; }
+  .hidden { display: none; }
+</style>
+</head>
+<body>
+<main>
+  <h1>CK3 Build Suite</h1>
+  <p>Import your own game data once. Files are read in this browser and never uploaded.</p>
+
+  <section id="import">
+    <h2>1. Import from your game</h2>
+
+    <div id="direct" class="hidden">
+      <p>Pick the <code>game</code> folder of Crusader Kings III. Only the trait files are read, not the rest of the install.</p>
+      <div class="row">
+        <button id="pick-game">Choose game folder</button>
+        <select id="language" class="hidden" aria-label="Language"></select>
+        <button id="run-game" class="hidden">Import</button>
+      </div>
+    </div>
+
+    <div id="manual" class="hidden">
+      <p id="manual-note">Your browser cannot open the game folder directly. Pick the two small folders separately.</p>
+      <label>Traits folder (<code>game/common/traits</code>)<br><input type="file" id="traits-input" webkitdirectory></label>
+      <label>Localization folder (<code>game/localization/spanish</code> or <code>english</code>)<br><input type="file" id="loc-input" webkitdirectory></label>
+      <div class="row">
+        <select id="manual-language" aria-label="Language">
+          <option value="english">english</option>
+          <option value="spanish">spanish</option>
+        </select>
+        <button id="run-manual">Import</button>
+      </div>
+    </div>
+  </section>
+
+  <section id="transfer">
+    <h2>Move data between devices</h2>
+    <p>Export on your computer, import on your phone.</p>
+    <div class="row">
+      <button id="export" class="secondary" disabled>Export file</button>
+      <label class="secondary"><input type="file" id="import-file" accept="application/json"></label>
+      <button id="clear" class="secondary" disabled>Remove saved data</button>
+    </div>
+  </section>
+
+  <div id="status" role="status"></div>
+
+  <section id="summary" class="hidden">
+    <h2>Loaded data</h2>
+    <p id="summary-text"></p>
+    <table><thead><tr><th>Category</th><th>Traits</th></tr></thead><tbody id="summary-rows"></tbody></table>
+  </section>
+</main>
+
+<script type="module">
+import {
+  listLanguages, readFromGameDir, readFromFileLists, buildDataset,
+  exportDataset, parseDataset, saveDataset, loadDataset, clearDataset,
+} from './importer.js';
+
+const $ = (id) => document.getElementById(id);
+let gameDir = null;
+let current = null;
+
+function say(message, isError = false) {
+  const el = $('status');
+  el.textContent = message;
+  el.className = isError ? 'error' : '';
+}
+
+function render(dataset) {
+  current = dataset;
+  $('export').disabled = $('clear').disabled = !dataset;
+  $('summary').classList.toggle('hidden', !dataset);
+  if (!dataset) return;
+  const counts = new Map();
+  for (const t of dataset.traits) counts.set(t.category ?? 'congenital', (counts.get(t.category ?? 'congenital') ?? 0) + 1);
+  $('summary-text').textContent = `${dataset.traits.length} traits (${dataset.language}), imported ${dataset.generatedAt.slice(0, 10)}.`;
+  $('summary-rows').replaceChildren(...[...counts].sort().map(([cat, n]) => {
+    const tr = document.createElement('tr');
+    tr.append(Object.assign(document.createElement('td'), { textContent: cat }), Object.assign(document.createElement('td'), { textContent: n }));
+    return tr;
+  }));
+}
+
+async function finish(input) {
+  const dataset = await buildDataset(input);
+  try { await saveDataset(dataset); } catch { say('Imported, but this browser could not save the data. Export it to keep a copy.', true); }
+  render(dataset);
+  if ($('status').className !== 'error') say(`Done: ${dataset.traits.length} traits.`);
+}
+
+async function run(task) {
+  say('Reading files...');
+  try { await task(); } catch (e) { say(e.message, true); }
+}
+
+if ('showDirectoryPicker' in window) {
+  $('direct').classList.remove('hidden');
+  $('pick-game').onclick = () => run(async () => {
+    gameDir = await window.showDirectoryPicker({ id: 'ck3-game', mode: 'read' });
+    const langs = await listLanguages(gameDir);
+    if (langs.length === 0) throw new Error('No "localization" folder found. Pick the folder named "game".');
+    const select = $('language');
+    select.replaceChildren(...langs.map((l) => Object.assign(document.createElement('option'), { value: l, textContent: l })));
+    select.value = langs.includes('spanish') ? 'spanish' : langs.includes('english') ? 'english' : langs[0];
+    select.classList.remove('hidden');
+    $('run-game').classList.remove('hidden');
+    say('Folder selected. Choose a language and import.');
+  });
+  $('run-game').onclick = () => run(async () => finish(await readFromGameDir(gameDir, $('language').value)));
+} else {
+  $('manual').classList.remove('hidden');
+}
+
+$('run-manual').onclick = () => run(async () => {
+  const language = $('manual-language').value;
+  await finish(readFromFileLists($('traits-input').files, $('loc-input').files, language));
+});
+
+$('export').onclick = () => {
+  const url = URL.createObjectURL(new Blob([exportDataset(current)], { type: 'application/json' }));
+  Object.assign(document.createElement('a'), { href: url, download: 'ck3-dataset.json' }).click();
+  URL.revokeObjectURL(url);
+};
+
+$('import-file').onchange = (e) => run(async () => {
+  const file = e.target.files[0];
+  if (!file) return;
+  const dataset = parseDataset(await file.text());
+  await saveDataset(dataset).catch(() => {});
+  render(dataset);
+  say('Data imported from file.');
+});
+
+$('clear').onclick = () => run(async () => { await clearDataset(); render(null); say('Saved data removed.'); });
+
+loadDataset().then(render).catch(() => render(null));
+</script>
+</body>
+</html>
