@@ -61,9 +61,11 @@ export function parseScript(source) {
         continue;
       }
       if (OPERATORS.has(tokens[pos])) {
-        pos++;
+        const op = tokens[pos++];
         const next = tokens[pos++];
-        entries.push([text(tok), next === '{' ? parseBlock(true) : text(next)]);
+        // Comparisons keep their operator in the key (`scope:value >`), so `> 4` and `< 9` stay distinct.
+        const key = op === '=' || op === '?=' ? text(tok) : `${text(tok)} ${op}`;
+        entries.push([key, next === '{' ? parseBlock(true) : text(next)]);
       } else {
         entries.push([null, text(tok)]);
       }

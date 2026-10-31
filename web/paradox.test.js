@@ -14,6 +14,11 @@ t = { flag = a # trailing
   assert.deepEqual(body.find(([k]) => k === 'opposites')[1], [[null, 'chaste'], [null, 'lustful']]);
 });
 
+test('parseScript keeps comparison operators in the key', () => {
+  const [[, body]] = parseScript('t = { v > 4 v < 9 w >= 1 x = 2 y ?= 3 }');
+  assert.deepEqual(body, [['v >', '4'], ['v <', '9'], ['w >=', '1'], ['x', '2'], ['y', '3']]);
+});
+
 test('extractTraits reads cost, category, level and opposites', () => {
   const traits = extractTraits(`
 education_intrigue_2 = { category = education level = 2 ruler_designer_cost = 20 }
