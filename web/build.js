@@ -8,11 +8,18 @@ export function designerTraits(dataset) {
   return dataset.traits.filter((t) => t.inDesigner);
 }
 
+// `opposites` names a trait id or a whole group (beauty_good, intellect_bad...), and some
+// conflicts are declared by only one side, so a pair clashes if either side lists the other.
+const lists = (a, b) => a.opposites.includes(b.id) || (b.group !== null && b.group !== undefined && a.opposites.includes(b.group));
+// Tiers of one group (education_martial_1..5, beauty_good_1..3) are alternative levels of the same trait.
+const sameTierGroup = (a, b) => Boolean(a.group) && a.group === b.group && a.level != null && b.level != null;
+const clash = (a, b) => a.id !== b.id && (lists(a, b) || lists(b, a) || sameTierGroup(a, b));
+
 // Ids that cannot be picked together with the selected traits.
 export function conflictsOf(dataset, selected) {
+  const chosen = dataset.traits.filter((t) => selected.includes(t.id));
   const blocked = new Set();
-  const byId = new Map(dataset.traits.map((t) => [t.id, t]));
-  for (const id of selected) for (const opposite of byId.get(id)?.opposites ?? []) blocked.add(opposite);
+  for (const trait of dataset.traits) if (chosen.some((c) => clash(c, trait))) blocked.add(trait.id);
   return blocked;
 }
 
@@ -44,4 +51,41 @@ export function decodeBuild(code) {
   } catch {
     return null;
   }
+}
+
+// Splits traits into tier groups (two or more levels of one group) and everything else.
+export function tierGroups(traits) {
+  const byGroup = new Map();
+  for (const trait of traits) {
+    if (!trait.group || trait.level == null) continue;
+    if (!byGroup.has(trait.group)) byGroup.set(trait.group, []);
+    byGroup.get(trait.group).push(trait);
+  }
+  const groups = [];
+  const grouped = new Set();
+  for (const [group, members] of byGroup) {
+    if (members.length < 2) continue;
+    members.sort((a, b) => a.level - b.level);
+    groups.push({ group, members });
+    for (const m of members) grouped.add(m.id);
+  }
+  return { groups, singles: traits.filter((t) => !grouped.has(t.id)) };
+}
+
+// New selection after picking one tier of a group (or none): the group holds at most one level.
+export function setTier(selected, memberIds, chosenId) {
+  const rest = selected.filter((id) => !memberIds.includes(id));
+  return chosenId ? [...rest, chosenId] : rest;
+}
+
+// Categories where a character holds at most one trait (the game offers a single education).
+const EXCLUSIVE_CATEGORIES = ['education'];
+
+// Selection after picking `chosenId`, minus the traits it replaces in an exclusive category.
+// Call it before adding the pick: it only removes.
+export function dropRivals(dataset, selected, chosenId) {
+  const category = dataset.traits.find((t) => t.id === chosenId)?.category;
+  if (!EXCLUSIVE_CATEGORIES.includes(category)) return selected;
+  const inCategory = new Set(dataset.traits.filter((t) => t.category === category).map((t) => t.id));
+  return selected.filter((id) => !inCategory.has(id));
 }
