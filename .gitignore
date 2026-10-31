@@ -1,0 +1,7 @@
+# Game files stay local only: never commit or share them.
+data/*
+!data/README.md
+!data/traits.json
+
+.venv/
+__pycache__/
