@@ -37,7 +37,7 @@ test('language is saved choice, else browser language, else English', () => {
 });
 
 test('coded errors are translated, plain errors keep their message', () => {
-  const err = new CodedError('missingLocDir', { language: 'spanish' }, 'English text');
-  assert.equal(describeError('es', err), 'No se encontró la carpeta "localization/spanish".');
+  const err = new CodedError('missingValuesFile', { file: '02.txt' }, 'English text');
+  assert.equal(describeError('es', err), 'No se encontró el archivo "common/script_values/02.txt".');
   assert.equal(describeError('en', new Error('boom')), 'boom');
 });

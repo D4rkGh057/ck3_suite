@@ -48,22 +48,17 @@
       <p data-i18n-html="direct.text"></p>
       <div class="row">
         <button id="pick-game" data-i18n="direct.pick"></button>
-        <select id="language" class="hidden" data-i18n-aria="direct.language" aria-label="Game language"></select>
-        <button id="run-game" class="hidden" data-i18n="direct.import"></button>
       </div>
     </div>
 
     <div id="manual" class="hidden">
       <p id="manual-note" data-i18n-html="manual.note"></p>
       <label><span data-i18n-html="manual.traits"></span><br><input type="file" id="traits-input" webkitdirectory></label>
-      <label><span data-i18n-html="manual.loc"></span><br><input type="file" id="loc-input" webkitdirectory></label>
+      <label><span data-i18n-html="manual.locEn"></span><br><input type="file" id="loc-en-input" webkitdirectory></label>
+      <label><span data-i18n-html="manual.locEs"></span><br><input type="file" id="loc-es-input" webkitdirectory></label>
       <label><span data-i18n-html="manual.values"></span><br><input type="file" id="values-input" accept=".txt"></label>
       <label><span data-i18n-html="manual.defines"></span><br><input type="file" id="defines-input" accept=".txt"></label>
       <div class="row">
-        <select id="manual-language" data-i18n-aria="direct.language" aria-label="Game language">
-          <option value="english">english</option>
-          <option value="spanish">spanish</option>
-        </select>
         <button id="run-manual" data-i18n="manual.import"></button>
       </div>
     </div>
@@ -90,20 +85,20 @@
 
 <script type="module">
 import {
-  listLanguages, readFromGameDir, readFromFileLists, buildDataset,
+  readFromGameDir, readFromFileLists, buildDataset,
   exportDataset, parseDataset, saveDataset, loadDataset, clearDataset,
 } from './importer.js';
 import {
-  CodedError, applyTranslations, describeError, detectLang, loadSavedLang, saveLang, translate,
+  applyTranslations, describeError, detectLang, loadSavedLang, saveLang, translate,
 } from './i18n.js';
 
 const $ = (id) => document.getElementById(id);
 let lang = detectLang(loadSavedLang(), navigator.language);
-let gameDir = null;
 let current = null;
 // What the status line shows, kept as a function so it can be redrawn when the language changes.
 let statusView = null;
 
+const LANG_NAMES = { en: 'English', es: 'Español' };
 const t = (key, params) => translate(lang, key, params);
 
 function say(view, isError = false) {
@@ -127,7 +122,7 @@ function render(dataset) {
     const cat = trait.category ?? 'congenital';
     counts.set(cat, (counts.get(cat) ?? 0) + 1);
   }
-  $('summary-text').textContent = t('summary.text', { count: dataset.traits.length, language: dataset.language, date: dataset.generatedAt.slice(0, 10) });
+  $('summary-text').textContent = t('summary.text', { count: dataset.traits.length, languages: dataset.languages.map((l) => LANG_NAMES[l] ?? l).join(', '), date: dataset.generatedAt.slice(0, 10) });
   $('summary-rows').replaceChildren(...[...counts].sort().map(([cat, n]) => {
     const tr = document.createElement('tr');
     const label = t(`cat.${cat}`);
@@ -165,24 +160,20 @@ async function run(task) {
 if ('showDirectoryPicker' in window) {
   $('direct').classList.remove('hidden');
   $('pick-game').onclick = () => run(async () => {
-    gameDir = await window.showDirectoryPicker({ id: 'ck3-game', mode: 'read' });
-    const langs = await listLanguages(gameDir);
-    if (langs.length === 0) throw new CodedError('noLocalization', {}, 'No "localization" folder found.');
-    const select = $('language');
-    select.replaceChildren(...langs.map((l) => Object.assign(document.createElement('option'), { value: l, textContent: l })));
-    select.value = langs.includes('spanish') ? 'spanish' : langs.includes('english') ? 'english' : langs[0];
-    select.classList.remove('hidden');
-    $('run-game').classList.remove('hidden');
-    say(() => t('status.folderSelected'));
+    const gameDir = await window.showDirectoryPicker({ id: 'ck3-game', mode: 'read' });
+    await finish(await readFromGameDir(gameDir));
   });
-  $('run-game').onclick = () => run(async () => finish(await readFromGameDir(gameDir, $('language').value)));
 } else {
   $('manual').classList.remove('hidden');
 }
 
 $('run-manual').onclick = () => run(async () => {
-  const language = $('manual-language').value;
-  await finish(readFromFileLists($('traits-input').files, $('loc-input').files, language, $('values-input').files[0] ?? null, $('defines-input').files[0] ?? null));
+  await finish(readFromFileLists(
+    $('traits-input').files,
+    { en: $('loc-en-input').files, es: $('loc-es-input').files },
+    $('values-input').files[0] ?? null,
+    $('defines-input').files[0] ?? null,
+  ));
 });
 
 $('export').onclick = () => {
